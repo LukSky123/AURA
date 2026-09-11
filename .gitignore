@@ -1,0 +1,41 @@
+# Secrets and local environments
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# JavaScript
+node_modules/
+.next/
+out/
+
+# Flutter/Dart
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+coverage/
+
+# Android/iOS generated files
+android/.gradle/
+android/local.properties
+ios/Pods/
+ios/.symlinks/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+
+# Python/ML data and generated artifacts
+.venv/
+__pycache__/
+*.py[cod]
+ml/data/raw/
+ml/data/processed/
+ml/artifacts/
+ml/reports/
+*.tflite
+*.keras
+
+# Dataset archives and local source material
+datasets/

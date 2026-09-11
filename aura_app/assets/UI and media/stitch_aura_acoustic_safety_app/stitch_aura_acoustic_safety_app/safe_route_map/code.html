@@ -1,0 +1,245 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>AURA - Route Planning</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary": "#680016",
+                    "surface-container": "#171f32",
+                    "primary": "#c2c6da",
+                    "inverse-primary": "#595e6f",
+                    "tertiary-container": "#2a0004",
+                    "on-tertiary-container": "#f21d45",
+                    "on-surface": "#dae2fc",
+                    "on-tertiary-fixed": "#40000a",
+                    "on-tertiary-fixed-variant": "#920023",
+                    "outline": "#909096",
+                    "secondary": "#bdf4ff",
+                    "secondary-fixed": "#9cf0ff",
+                    "surface-container-low": "#131b2e",
+                    "surface": "#0b1326",
+                    "on-error-container": "#ffdad6",
+                    "on-secondary-fixed-variant": "#004f58",
+                    "primary-container": "#0a0f1d",
+                    "on-secondary": "#00363d",
+                    "tertiary": "#ffb3b3",
+                    "on-primary-fixed": "#161b2a",
+                    "error-container": "#93000a",
+                    "surface-container-lowest": "#060e20",
+                    "surface-dim": "#0b1326",
+                    "on-error": "#690005",
+                    "tertiary-fixed-dim": "#ffb3b3",
+                    "on-surface-variant": "#c6c6cc",
+                    "surface-container-high": "#222a3d",
+                    "secondary-container": "#00e3fd",
+                    "background": "#0b1326",
+                    "surface-container-highest": "#2d3449",
+                    "primary-fixed": "#dee2f6",
+                    "primary-fixed-dim": "#c2c6da",
+                    "on-primary-fixed-variant": "#424657",
+                    "on-secondary-fixed": "#001f24",
+                    "surface-variant": "#2d3449",
+                    "outline-variant": "#46464c",
+                    "on-primary-container": "#777b8d",
+                    "tertiary-fixed": "#ffdad9",
+                    "surface-tint": "#c2c6da",
+                    "inverse-on-surface": "#283044",
+                    "inverse-surface": "#dae2fc",
+                    "error": "#ffb4ab",
+                    "surface-bright": "#31394d",
+                    "on-secondary-container": "#00616d",
+                    "secondary-fixed-dim": "#00daf3",
+                    "on-primary": "#2b303f",
+                    "on-background": "#dae2fc"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "base": "8px",
+                    "stack-md": "12px",
+                    "stack-sm": "4px",
+                    "stack-lg": "24px",
+                    "gutter": "16px",
+                    "container-padding": "20px"
+            },
+            "fontFamily": {
+                    "headline-lg-mobile": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "label-caps": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                    "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                    "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                    "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                    "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                    "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                    "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+            }
+          }
+        }
+      }
+    </script>
+<style>
+      .material-symbols-outlined {
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      }
+      .icon-filled {
+        font-variation-settings: 'FILL' 1;
+      }
+      .glass-card {
+        background: rgba(19, 27, 46, 0.6);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+      }
+      .alert-card {
+        background: rgba(10, 15, 29, 0.85);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border: 1px solid rgba(255, 42, 77, 0.4);
+      }
+    </style>
+</head>
+<body class="bg-background text-on-surface h-screen w-screen overflow-hidden selection:bg-secondary/30 relative">
+<!-- Map Background -->
+<div class="absolute inset-0 z-0">
+<div class="w-full h-full bg-cover bg-center opacity-60 mix-blend-lighten grayscale-[30%]" data-alt="A highly detailed vector dark-mode map of a dense urban environment styled in deep midnight blues and slate grey, reminiscent of a high-tech protective intelligence surveillance interface, shot from a top-down tactical perspective. Glowing crimson and amber gradients softly illuminate specific city blocks to indicate risk zones. The visual style is premium, sharp, and futuristic." data-location="New York City" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuArvCIBm5Pg_H_fodP3dJxgWiGHzKmsgeebJEW47q8KwVXCPWzxGu-59cJi3_fZJEl7ZMs9fRDn5hgkD4lyvOUG5yhyOy454yzikWK6klVcEkZKGNj09JINrzgvIKxu-rJjiusm6qeZM3YbdLuEaOThG3dzh2Fx9JyiLLZyMNVEv3R0fzAUoWe-MPfkqKMC6pQZfV1BHvElJH3wnc6SllZwvpF3iHEZ2uCFUKHbDBYrff3SjYiD9i4')"></div>
+<!-- Heatmap Overlays (CSS Gradients) -->
+<div class="absolute inset-0 pointer-events-none mix-blend-screen">
+<div class="absolute top-[30%] left-[20%] w-[250px] h-[250px] bg-[#f21d45] rounded-full blur-[90px] opacity-40"></div>
+<div class="absolute top-[45%] right-[15%] w-[180px] h-[180px] bg-[#f21d45] rounded-full blur-[70px] opacity-30"></div>
+<div class="absolute bottom-[35%] left-[40%] w-[300px] h-[300px] bg-[#ffb4ab] rounded-full blur-[100px] opacity-20"></div>
+</div>
+<!-- Route Path SVG -->
+<svg class="absolute inset-0 w-full h-full pointer-events-none" preserveAspectRatio="none" viewBox="0 0 400 800">
+<!-- Safe Route -->
+<path class="opacity-80 drop-shadow-[0_0_8px_rgba(0,218,243,0.8)]" d="M 200,600 C 180,500 120,400 150,300 C 170,230 220,180 250,150" fill="none" stroke="#00daf3" stroke-dasharray="8 8" stroke-width="4"></path>
+<!-- Fast/Risky Route -->
+<path class="opacity-60 drop-shadow-[0_0_8px_rgba(242,29,69,0.5)]" d="M 200,600 C 220,500 280,450 250,300 C 240,250 240,200 250,150" fill="none" stroke="#f21d45" stroke-dasharray="6 4" stroke-width="4"></path>
+<!-- User Location Marker -->
+<circle class="drop-shadow-[0_0_12px_rgba(0,218,243,1)]" cx="200" cy="600" fill="#00daf3" r="8"></circle>
+<circle class="opacity-50 animate-ping" cx="200" cy="600" fill="none" r="24" stroke="#00daf3" stroke-width="1"></circle>
+<!-- Destination Marker -->
+<circle cx="250" cy="150" fill="#dae2fc" r="6" stroke="#131b2e" stroke-width="2"></circle>
+</svg>
+</div>
+<!-- Top App Bar -->
+<header class="fixed bg-surface/60 dark:bg-surface/60 backdrop-blur-xl docked full-width top-0 border-b border-white/10 dark:border-white/10 flex justify-between items-center w-full px-container-padding py-stack-md z-50">
+<button class="text-primary dark:text-primary-fixed hover:opacity-80 transition-opacity active:scale-95 duration-200 transition-transform">
+<span class="material-symbols-outlined" data-icon="security">security</span>
+</button>
+<h1 class="font-display-lg text-display-lg tracking-tighter text-on-surface dark:text-on-surface">AURA</h1>
+<button class="text-primary dark:text-primary-fixed hover:opacity-80 transition-opacity active:scale-95 duration-200 transition-transform">
+<span class="material-symbols-outlined" data-icon="settings_suggest">settings_suggest</span>
+</button>
+</header>
+<!-- Main Floating UI (z-40) -->
+<main class="relative z-40 h-full flex flex-col justify-between pt-[100px] pb-[120px] px-container-padding pointer-events-none">
+<!-- Search Capsule -->
+<div class="pointer-events-auto w-full max-w-md mx-auto">
+<div class="glass-card rounded-full flex items-center px-4 py-3 shadow-lg group focus-within:border-secondary/50 transition-colors">
+<span class="material-symbols-outlined text-secondary mr-3" data-icon="explore">explore</span>
+<input class="bg-transparent border-none outline-none w-full text-on-surface font-body-md text-body-md placeholder:text-on-surface-variant focus:ring-0 p-0" placeholder="Ask and plan your routes..." type="text">
+<button class="ml-2 w-10 h-10 rounded-full bg-secondary-fixed/10 flex items-center justify-center text-secondary border border-secondary/30 hover:bg-secondary/20 transition-colors">
+<span class="material-symbols-outlined icon-filled" data-icon="auto_awesome">auto_awesome</span>
+</button>
+</div>
+</div>
+<!-- AI Route Selection Drawer -->
+<div class="pointer-events-auto w-full max-w-md mx-auto space-y-stack-md animate-[slideUp_0.5s_ease-out]">
+<!-- Drawer Handle -->
+<div class="w-12 h-1.5 bg-white/20 rounded-full mx-auto mb-stack-sm"></div>
+<!-- Option 1: Safest Route -->
+<button class="w-full text-left glass-card rounded-xl p-gutter relative overflow-hidden group border-secondary/30 hover:bg-surface-container-highest/60 transition-all">
+<div class="absolute inset-0 bg-gradient-to-r from-secondary-fixed/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex items-start justify-between relative z-10">
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-full bg-secondary-fixed/20 flex items-center justify-center border border-secondary-fixed/40">
+<span class="material-symbols-outlined text-secondary-fixed" data-icon="shield">shield</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-secondary-fixed">Safest Route</h3>
+<p class="font-body-md text-body-md text-on-surface-variant mt-1">0 Active Threats Detected</p>
+</div>
+</div>
+<div class="text-right">
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">18</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant ml-1">MIN</span>
+<p class="font-label-caps text-label-caps text-secondary-fixed mt-1 tracking-widest">+4 MINS</p>
+</div>
+</div>
+</button>
+<!-- Option 2: Fastest Route -->
+<button class="w-full text-left alert-card rounded-xl p-gutter relative overflow-hidden group hover:bg-tertiary-container/40 transition-all">
+<div class="absolute inset-0 bg-gradient-to-r from-on-tertiary-container/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+<div class="flex items-start justify-between relative z-10">
+<div class="flex gap-4">
+<div class="w-10 h-10 rounded-full bg-on-tertiary-container/20 flex items-center justify-center border border-on-tertiary-container/40 shadow-[0_0_12px_rgba(242,29,69,0.3)]">
+<span class="material-symbols-outlined text-on-tertiary-container" data-icon="bolt">bolt</span>
+</div>
+<div>
+<h3 class="font-headline-md text-headline-md text-on-surface">Fastest Route</h3>
+<div class="inline-flex items-center gap-1.5 mt-1 bg-error-container/30 px-2 py-0.5 rounded-full border border-on-tertiary-container/30">
+<span class="material-symbols-outlined text-[14px] text-on-tertiary-container" data-icon="warning">warning</span>
+<p class="font-label-caps text-label-caps text-on-tertiary-container">Passes 2 recent noise alerts</p>
+</div>
+</div>
+</div>
+<div class="text-right">
+<span class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface">14</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant ml-1">MIN</span>
+</div>
+</div>
+</button>
+<button class="w-full py-3 mt-4 glass-card rounded-lg font-headline-md text-headline-md text-secondary border border-secondary/50 hover:bg-secondary/10 transition-colors shadow-[0_0_15px_rgba(0,218,243,0.15)] inner-glow">
+                Begin Navigation
+            </button>
+</div>
+</main>
+<!-- Bottom Nav Bar -->
+<nav class="bg-surface-container-low/60 dark:bg-surface-container-low/60 backdrop-blur-2xl docked full-width bottom-0 rounded-t-xl border-t border-white/10 dark:border-white/10 shadow-lg dark:shadow-none fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-8 pt-4 md:hidden">
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary dark:hover:text-primary-fixed transition-colors">
+<span class="material-symbols-outlined mb-1" data-icon="graphic_eq">graphic_eq</span>
+<span class="font-label-caps text-label-caps">Monitor</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary dark:hover:text-primary-fixed transition-colors">
+<span class="material-symbols-outlined mb-1" data-icon="history">history</span>
+<span class="font-label-caps text-label-caps">Recents</span>
+</button>
+<!-- Active Tab: Map -->
+<button class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim drop-shadow-[0_0_8px_rgba(0,227,253,0.5)] scale-110 duration-300 transition-all">
+<span class="material-symbols-outlined mb-1 icon-filled" data-icon="map">map</span>
+<span class="font-label-caps text-label-caps">Map</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary dark:hover:text-primary-fixed transition-colors">
+<span class="material-symbols-outlined mb-1" data-icon="person">person</span>
+<span class="font-label-caps text-label-caps">Profile</span>
+</button>
+</nav>
+<style>
+        @keyframes slideUp {
+            from { transform: translateY(40px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .inner-glow {
+            box-shadow: inset 0 0 10px rgba(0, 227, 253, 0.2), 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</body></html>

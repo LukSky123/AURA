@@ -1,0 +1,16 @@
+version: 1
+labels: [gunshot, glass_break, collision, explosion, neutral]
+minimums:
+  # These are launch gates, not claimed current model results.
+  per_class_precision: 0.90
+  per_class_recall: 0.85
+  neutral_false_alert_rate_per_hour: 0.05
+  max_model_size_mb: 8
+required_slices:
+  - held_out_source
+  - microphone_variance
+  - traffic_and_engines
+  - generators
+  - conversation_and_crowds
+  - music
+  - nigeria_ambient

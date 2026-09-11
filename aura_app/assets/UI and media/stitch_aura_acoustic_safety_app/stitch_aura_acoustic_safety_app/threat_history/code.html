@@ -1,0 +1,303 @@
+<!DOCTYPE html><html class="dark" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Recents - Threat History</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#680016",
+                        "surface-container": "#171f32",
+                        "primary": "#c2c6da",
+                        "inverse-primary": "#595e6f",
+                        "tertiary-container": "#2a0004",
+                        "on-tertiary-container": "#f21d45",
+                        "on-surface": "#dae2fc",
+                        "on-tertiary-fixed": "#40000a",
+                        "on-tertiary-fixed-variant": "#920023",
+                        "outline": "#909096",
+                        "secondary": "#bdf4ff",
+                        "secondary-fixed": "#9cf0ff",
+                        "surface-container-low": "#131b2e",
+                        "surface": "#0b1326",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-fixed-variant": "#004f58",
+                        "primary-container": "#0a0f1d",
+                        "on-secondary": "#00363d",
+                        "tertiary": "#ffb3b3",
+                        "on-primary-fixed": "#161b2a",
+                        "error-container": "#93000a",
+                        "surface-container-lowest": "#060e20",
+                        "surface-dim": "#0b1326",
+                        "on-error": "#690005",
+                        "tertiary-fixed-dim": "#ffb3b3",
+                        "on-surface-variant": "#c6c6cc",
+                        "surface-container-high": "#222a3d",
+                        "secondary-container": "#00e3fd",
+                        "background": "#0b1326",
+                        "surface-container-highest": "#2d3449",
+                        "primary-fixed": "#dee2f6",
+                        "primary-fixed-dim": "#c2c6da",
+                        "on-primary-fixed-variant": "#424657",
+                        "on-secondary-fixed": "#001f24",
+                        "surface-variant": "#2d3449",
+                        "outline-variant": "#46464c",
+                        "on-primary-container": "#777b8d",
+                        "tertiary-fixed": "#ffdad9",
+                        "surface-tint": "#c2c6da",
+                        "inverse-on-surface": "#283044",
+                        "inverse-surface": "#dae2fc",
+                        "error": "#ffb4ab",
+                        "surface-bright": "#31394d",
+                        "on-secondary-container": "#00616d",
+                        "secondary-fixed-dim": "#00daf3",
+                        "on-primary": "#2b303f",
+                        "on-background": "#dae2fc"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "base": "8px",
+                        "stack-md": "12px",
+                        "stack-sm": "4px",
+                        "stack-lg": "24px",
+                        "gutter": "16px",
+                        "container-padding": "20px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Inter"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "label-caps": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["28px", { "lineHeight": "36px", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+                        "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "600" }],
+                        "label-caps": ["12px", { "lineHeight": "16px", "letterSpacing": "0.1em", "fontWeight": "600" }],
+                        "headline-md": ["24px", { "lineHeight": "32px", "fontWeight": "600" }],
+                        "display-lg": ["48px", { "lineHeight": "56px", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #0A0F1D; /* Level 0: Deep Midnight */
+            color: #dae2fc;
+            -webkit-font-smoothing: antialiased;
+        }
+        
+        .glass-card {
+            background-color: rgba(19, 27, 46, 0.6); /* Level 1: Dark Slate at 60% */
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .alert-border {
+            border: 1px solid rgba(255, 42, 77, 0.4);
+        }
+
+        .waveform-mock {
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(0,227,253,0.1) 10%, 
+                rgba(0,227,253,0.5) 20%, 
+                rgba(0,227,253,0.8) 30%, 
+                rgba(0,227,253,1) 40%, 
+                rgba(0,227,253,0.8) 50%, 
+                rgba(0,227,253,0.5) 60%, 
+                rgba(0,227,253,0.9) 70%, 
+                rgba(0,227,253,0.3) 80%, 
+                transparent 100%);
+            mask-image: repeating-linear-gradient(90deg, black, black 2px, transparent 2px, transparent 4px);
+            -webkit-mask-image: repeating-linear-gradient(90deg, black, black 2px, transparent 2px, transparent 4px);
+        }
+        
+        .waveform-mock.critical {
+            background: linear-gradient(90deg, 
+                transparent 0%, 
+                rgba(255,42,77,0.1) 10%, 
+                rgba(255,42,77,0.5) 20%, 
+                rgba(255,42,77,0.8) 30%, 
+                rgba(255,42,77,1) 50%, 
+                rgba(255,42,77,0.8) 70%, 
+                transparent 100%);
+        }
+        
+        /* Nav bar specific hide logic for desktop/mobile */
+        .desktop-nav { display: none; }
+        @media (min-width: 768px) {
+            .desktop-nav { display: flex; }
+            .mobile-nav { display: none; }
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-32 md:pb-0 pt-20 md:pt-24 flex flex-col items-center">
+<!-- TopAppBar (Web) -->
+<header class="hidden md:flex bg-surface/60 dark:bg-surface/60 backdrop-blur-xl docked full-width top-0 border-b border-white/10 dark:border-white/10 flat no shadows glassmorphism flex justify-between items-center w-full px-container-padding py-stack-md fixed z-50">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary dark:text-primary-fixed" data-icon="security" data-weight="fill" style="font-variation-settings: 'FILL' 1;">security</span>
+<h1 class="font-display-lg text-display-lg tracking-tighter text-on-surface dark:text-on-surface">AURA</h1>
+</div>
+<nav class="flex gap-8 desktop-nav">
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 transition-opacity flex flex-col items-center gap-1" href="#">
+<span>Monitor</span>
+</a>
+<a class="font-label-caps text-label-caps text-secondary dark:text-secondary-fixed hover:opacity-80 transition-opacity flex flex-col items-center gap-1 scale-95 duration-200 transition-transform" href="#">
+<span class="drop-shadow-[0_0_8px_rgba(0,227,253,0.5)]">Recents</span>
+</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 transition-opacity flex flex-col items-center gap-1" href="#">
+<span>Map</span>
+</a>
+<a class="font-label-caps text-label-caps text-on-surface-variant dark:text-on-surface-variant hover:opacity-80 transition-opacity flex flex-col items-center gap-1" href="#">
+<span>Profile</span>
+</a>
+</nav>
+<button class="hover:opacity-80 transition-opacity text-primary dark:text-primary-fixed">
+<span class="material-symbols-outlined" data-icon="settings_suggest">settings_suggest</span>
+</button>
+</header>
+<!-- TopAppBar (Mobile) -->
+<header class="md:hidden bg-surface/60 dark:bg-surface/60 backdrop-blur-xl docked full-width top-0 border-b border-white/10 dark:border-white/10 flat no shadows glassmorphism flex justify-between items-center w-full px-container-padding py-stack-md fixed z-50">
+<button class="text-primary dark:text-primary-fixed hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="security" data-weight="fill" style="font-variation-settings: 'FILL' 1;">security</span>
+</button>
+<h1 class="font-display-lg text-display-lg tracking-tighter text-on-surface dark:text-on-surface">AURA</h1>
+<button class="text-primary dark:text-primary-fixed hover:opacity-80 transition-opacity">
+<span class="material-symbols-outlined" data-icon="settings_suggest">settings_suggest</span>
+</button>
+</header>
+<!-- Main Content -->
+<main class="w-full max-w-3xl px-container-padding mx-auto mt-stack-lg flex flex-col gap-stack-lg flex-grow">
+<!-- Header & Filters -->
+<div class="flex flex-col gap-stack-md">
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile md:font-headline-lg md:text-headline-lg text-on-surface">Threat History</h2>
+<div class="flex gap-stack-sm overflow-x-auto pb-2 scrollbar-hide">
+<button class="px-4 py-1.5 rounded-full glass-card border border-secondary/50 text-secondary font-label-caps text-label-caps whitespace-nowrap bg-secondary/10 inner-shadow-glow">
+                    All
+                </button>
+<button class="px-4 py-1.5 rounded-full glass-card text-on-surface-variant font-label-caps text-label-caps whitespace-nowrap hover:bg-surface-container-high transition-colors">
+                    Critical
+                </button>
+<button class="px-4 py-1.5 rounded-full glass-card text-on-surface-variant font-label-caps text-label-caps whitespace-nowrap hover:bg-surface-container-high transition-colors">
+                    Verified
+                </button>
+<button class="px-4 py-1.5 rounded-full glass-card text-on-surface-variant font-label-caps text-label-caps whitespace-nowrap hover:bg-surface-container-high transition-colors">
+                    False Alarms
+                </button>
+</div>
+</div>
+<!-- Log List -->
+<div class="flex flex-col gap-stack-md">
+<!-- Card 1: Critical (Gunshot) -->
+<div class="glass-card rounded-lg p-stack-md flex flex-col gap-stack-md alert-border bg-[#000000]/40">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-stack-sm text-[#FF2A4D]">
+<span class="material-symbols-outlined" data-icon="warning" data-weight="fill" style="font-variation-settings: 'FILL' 1;">warning</span>
+<h3 class="font-headline-md text-headline-md">Gunshot Detected</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-on-surface-variant">2 MINS AGO</span>
+<span class="font-label-caps text-label-caps text-[#FF2A4D]">CONFIDENCE: 98%</span>
+</div>
+</div>
+<div class="h-12 w-full waveform-mock critical rounded-sm"></div>
+<div class="flex justify-between items-center border-t border-white/10 pt-stack-sm mt-stack-sm">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span>Sector 7G, Level 4</span>
+</div>
+<div class="px-3 py-1 rounded-full bg-[#FF2A4D]/20 border border-[#FF2A4D]/50 text-[#FF2A4D] font-label-caps text-label-caps flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="check_circle">check_circle</span>
+                        Verified
+                    </div>
+</div>
+</div>
+<!-- Card 2: High (Shattered Glass) -->
+<div class="glass-card rounded-lg p-stack-md flex flex-col gap-stack-md">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-stack-sm text-secondary">
+<span class="material-symbols-outlined" data-icon="broken_image">broken_image</span>
+<h3 class="font-headline-md text-headline-md text-on-surface">Shattered Glass</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-on-surface-variant">45 MINS AGO</span>
+<span class="font-label-caps text-label-caps text-secondary">CONFIDENCE: 82%</span>
+</div>
+</div>
+<div class="h-12 w-full waveform-mock rounded-sm"></div>
+<div class="flex justify-between items-center border-t border-white/10 pt-stack-sm mt-stack-sm">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span>North Wing, Atrium</span>
+</div>
+<div class="px-3 py-1 rounded-full bg-surface-container border border-outline/30 text-on-surface-variant font-label-caps text-label-caps flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="pending">pending</span>
+                        Pending Review
+                    </div>
+</div>
+</div>
+<!-- Card 3: False Alarm (High-Impact Crash) -->
+<div class="glass-card rounded-lg p-stack-md flex flex-col gap-stack-md opacity-60">
+<div class="flex justify-between items-start">
+<div class="flex items-center gap-stack-sm text-on-surface-variant">
+<span class="material-symbols-outlined" data-icon="car_crash">car_crash</span>
+<h3 class="font-headline-md text-headline-md text-on-surface-variant line-through">High-Impact Crash</h3>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label-caps text-label-caps text-on-surface-variant">3 HOURS AGO</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">CONFIDENCE: 45%</span>
+</div>
+</div>
+<div class="h-8 w-full waveform-mock rounded-sm opacity-30 grayscale"></div>
+<div class="flex justify-between items-center border-t border-white/10 pt-stack-sm mt-stack-sm">
+<div class="flex items-center gap-2 text-on-surface-variant font-body-md text-body-md">
+<span class="material-symbols-outlined text-sm" data-icon="location_on">location_on</span>
+<span>Loading Dock B</span>
+</div>
+<div class="px-3 py-1 rounded-full bg-surface border border-outline/30 text-on-surface-variant font-label-caps text-label-caps flex items-center gap-1">
+<span class="material-symbols-outlined text-xs" data-icon="cancel">cancel</span>
+                        False Alarm
+                    </div>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden bg-surface-container-low/60 dark:bg-surface-container-low/60 backdrop-blur-2xl docked full-width bottom-0 rounded-t-xl shadow-lg dark:shadow-none fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-8 pt-4 border-t border-white/10 dark:border-white/10">
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary dark:hover:text-primary-fixed transition-colors gap-1" href="#">
+<span class="material-symbols-outlined" data-icon="graphic_eq">graphic_eq</span>
+<span class="font-label-caps text-label-caps">Monitor</span>
+</a>
+<!-- Active Tab -->
+<a class="flex flex-col items-center justify-center text-secondary dark:text-secondary-fixed-dim drop-shadow-[0_0_8px_rgba(0,227,253,0.5)] scale-110 duration-300 transition-all gap-1" href="#">
+<span class="material-symbols-outlined" data-icon="history" data-weight="fill" style="font-variation-settings: 'FILL' 1;">history</span>
+<span class="font-label-caps text-label-caps">Recents</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary dark:hover:text-primary-fixed transition-colors gap-1" href="#">
+<span class="material-symbols-outlined" data-icon="map">map</span>
+<span class="font-label-caps text-label-caps">Map</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant dark:text-on-surface-variant opacity-60 hover:text-primary dark:hover:text-primary-fixed transition-colors gap-1" href="#">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-label-caps text-label-caps">Profile</span>
+</a>
+</nav>
+</body></html>
