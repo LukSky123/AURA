@@ -4,6 +4,14 @@ import { sendTermiiSms } from '../_shared/termii.ts';
 
 const permittedKinds = new Set(['gunshot', 'glass_break', 'collision', 'explosion', 'manual_sos']);
 
+function normalizeKind(kind: string): string {
+  switch (kind) {
+    case 'glassBreak': return 'glass_break';
+    case 'manualSos': return 'manual_sos';
+    default: return kind;
+  }
+}
+
 async function hashToken(rawToken: string): Promise<string> {
   const encoder = new TextEncoder();
   const data = encoder.encode(rawToken);
@@ -18,7 +26,8 @@ Deno.serve(async (request) => {
     const user = await requireUser(request);
     const payload = await request.json();
 
-    if (!permittedKinds.has(payload.kind)) return json({ error: 'Invalid incident kind' }, 400);
+    const normalizedKind = normalizeKind(payload.kind ?? '');
+    if (!permittedKinds.has(normalizedKind)) return json({ error: 'Invalid incident kind' }, 400);
     if (payload.confidence != null && (typeof payload.confidence !== 'number' || payload.confidence < 0 || payload.confidence > 1)) {
       return json({ error: 'Invalid confidence' }, 400);
     }
@@ -35,17 +44,41 @@ Deno.serve(async (request) => {
     const activeContacts = (contacts ?? []).slice(0, entitlements.contactLimit);
 
     // 2. Create the incident
-    const { data: incident, error: incidentError } = await admin.from('incidents').insert({
+    const insertPayload: Record<string, unknown> = {
       owner_id: user.id,
       device_id: payload.deviceId ?? null,
-      kind: payload.kind,
+      kind: normalizedKind,
       confidence: payload.confidence ?? null,
       model_version: payload.modelVersion ?? null,
       status: 'dispatched',
       dispatched_at: new Date().toISOString(),
-    }).select().single();
+    };
+    if (typeof payload.id === 'string' && payload.id.length > 0) {
+      insertPayload.id = payload.id;
+    }
+
+    const { data: incident, error: incidentError } = await admin
+      .from('incidents')
+      .insert(insertPayload)
+      .select()
+      .single();
 
     if (incidentError) throw incidentError;
+
+    // Ingest initial GPS location point if available
+    if (typeof payload.latitude === 'number' && typeof payload.longitude === 'number') {
+      try {
+        await admin.rpc('insert_location_point', {
+          p_incident_id: incident.id,
+          p_longitude: payload.longitude,
+          p_latitude: payload.latitude,
+          p_accuracy_m: payload.accuracyM ?? null,
+          p_recorded_at: payload.recordedAt ?? new Date().toISOString(),
+        });
+      } catch (locErr) {
+        console.warn('Could not insert initial location point:', locErr);
+      }
+    }
 
     // 3. Record event & audit log
     await admin.from('incident_events').insert({

@@ -40,7 +40,7 @@ class SafetyHome extends StatefulWidget {
 }
 
 class _SafetyHomeState extends State<SafetyHome> {
-  final IncidentRepository _repository = DeferredIncidentRepository();
+  final IncidentRepository _repository = SupabaseIncidentRepository();
   final DefaultEntitlementService _entitlementService = DefaultEntitlementService();
   final SimSmsService _simSmsService = DefaultSimSmsService();
   final StreamingDetectionService _detectionService = StreamingDetectionService();
@@ -56,6 +56,7 @@ class _SafetyHomeState extends State<SafetyHome> {
   StreamSubscription<DetectionEvent>? _detectionSubscription;
   StreamSubscription<String>? _hardwareSubscription;
   StreamSubscription<Position>? _locationSubscription;
+  StreamSubscription<IncidentSyncUpdate>? _incidentSyncSubscription;
   Timer? _timer;
   Incident? _active;
   Position? _currentPosition;
@@ -104,6 +105,7 @@ class _SafetyHomeState extends State<SafetyHome> {
     _detectionSubscription?.cancel();
     _hardwareSubscription?.cancel();
     _locationSubscription?.cancel();
+    _incidentSyncSubscription?.cancel();
     _detectionService.dispose();
     _hardwareService.dispose();
     _locationService.dispose();
@@ -150,6 +152,12 @@ class _SafetyHomeState extends State<SafetyHome> {
         if (mounted) {
           setState(() => _currentPosition = pos);
         }
+        await _repository.ingestLocation(
+          incidentId: incident.id,
+          latitude: pos.latitude,
+          longitude: pos.longitude,
+          accuracyM: pos.accuracy,
+        );
       },
     );
 
@@ -198,11 +206,14 @@ class _SafetyHomeState extends State<SafetyHome> {
       longitude: lng,
     );
 
-    await _repository.dispatch(dispatched);
+    final dispatchResult = await _repository.dispatch(dispatched);
+    final effectiveTargets = dispatchResult.fallbackTargets.isNotEmpty
+        ? dispatchResult.fallbackTargets
+        : dispatched.fallbackTargets;
 
     // If local SIM fallback is required, dispatch directly via Android SmsManager
-    if (dispatched.smsDispatchMode == SmsDispatchMode.fallbackToLocalSim && dispatched.fallbackTargets.isNotEmpty) {
-      final success = await _simSmsService.sendLocalSms(targets: dispatched.fallbackTargets);
+    if (dispatchResult.mode == SmsDispatchMode.fallbackToLocalSim && effectiveTargets.isNotEmpty) {
+      final success = await _simSmsService.sendLocalSms(targets: effectiveTargets);
       if (mounted && !success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -213,17 +224,36 @@ class _SafetyHomeState extends State<SafetyHome> {
       }
     }
 
+    // Subscribe to real-time incident status and contact acknowledgements
+    _incidentSyncSubscription?.cancel();
+    _incidentSyncSubscription = _repository.subscribeToIncident(dispatched.id).listen((update) {
+      if (!mounted) return;
+      if (update.acknowledgedCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Contact acknowledged your emergency alert (${update.acknowledgedCount} acknowledged).'),
+            backgroundColor: Colors.green.shade800,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    });
+
     if (!mounted) return;
     setState(() {
-      _history.insert(0, dispatched);
+      _history.insert(0, dispatchResult.incident);
       _active = null;
       _remaining = 0;
     });
 
-    if (dispatched.smsDispatchMode == SmsDispatchMode.fallbackToLocalSim) {
+    if (dispatchResult.mode == SmsDispatchMode.fallbackToLocalSim) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Free monthly cloud SMS quota reached. Emergency alert dispatched via your device carrier SIM.'),
+        SnackBar(
+          content: Text(
+            dispatchResult.isQueuedOffline
+                ? 'Device is offline. Emergency alert queued locally and dispatched via carrier SIM.'
+                : 'Free monthly cloud SMS quota reached. Emergency alert dispatched via your device carrier SIM.',
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -234,9 +264,10 @@ class _SafetyHomeState extends State<SafetyHome> {
     final active = _active;
     if (active == null) return;
     _timer?.cancel();
+    _incidentSyncSubscription?.cancel();
     await _locationService.stopTracking();
     _locationSubscription?.cancel();
-    await _repository.cancel(active.id);
+    await _repository.cancel(active.id, reason: 'false_alarm');
     _detectionService.recordFalseAlarm();
     setState(() {
       _history.insert(0, active.copyWith(status: IncidentStatus.cancelled));
