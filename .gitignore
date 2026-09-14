@@ -19,12 +19,15 @@ build/
 coverage/
 
 # Android/iOS generated files
-android/.gradle/
-android/local.properties
-ios/Pods/
-ios/.symlinks/
-ios/Flutter/Generated.xcconfig
-ios/Flutter/flutter_export_environment.sh
+**/android/.gradle/
+**/android/local.properties
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Flutter/Generated.xcconfig
+**/ios/Flutter/flutter_export_environment.sh
+**/ios/Flutter/
+**/ios/Runner/GeneratedPluginRegistrant.*
+**/android/**/GeneratedPluginRegistrant.*
 
 # Python/ML data and generated artifacts
 .venv/

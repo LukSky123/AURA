@@ -1,12 +1,16 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:uuid/uuid.dart';
 
 import 'domain.dart';
 import 'services/detection_service.dart';
 import 'services/entitlement_service.dart';
+import 'services/hardware_button_service.dart';
 import 'services/incident_repository.dart';
+import 'services/location_stream_service.dart';
 import 'services/sim_sms_service.dart';
 
 const _dispatchThreshold = 0.85;
@@ -40,6 +44,8 @@ class _SafetyHomeState extends State<SafetyHome> {
   final DefaultEntitlementService _entitlementService = DefaultEntitlementService();
   final SimSmsService _simSmsService = DefaultSimSmsService();
   final StreamingDetectionService _detectionService = StreamingDetectionService();
+  final HardwareButtonService _hardwareService = HardwareButtonService();
+  final LocationStreamService _locationService = LocationStreamService();
 
   final List<Incident> _history = [];
   final List<TrustedContact> _contacts = [
@@ -48,43 +54,116 @@ class _SafetyHomeState extends State<SafetyHome> {
   ];
 
   StreamSubscription<DetectionEvent>? _detectionSubscription;
+  StreamSubscription<String>? _hardwareSubscription;
+  StreamSubscription<Position>? _locationSubscription;
   Timer? _timer;
   Incident? _active;
+  Position? _currentPosition;
   int _remaining = 0;
   bool _listening = false;
   bool _optInAudioDonation = true;
+  bool _accessibilityEnabled = false;
+  bool _batteryOptimizationIgnored = false;
 
   @override
   void initState() {
     super.initState();
+    _initSystemReadiness();
+
     _detectionSubscription = _detectionService.events.listen((event) {
       if (mounted) {
         _onModelPrediction(event.kind, event.confidence);
       }
     });
+
+    // Hardware volume key events via AuraAccessibilityService
+    _hardwareSubscription = _hardwareService.hardwareEvents.listen((event) {
+      if (!mounted) return;
+      if (event == 'instant_dispatch') {
+        _handleInstantHardwareDispatch();
+      } else if (event == 'cancel_countdown') {
+        _cancel();
+      }
+    });
+  }
+
+  Future<void> _initSystemReadiness() async {
+    final a11y = await _hardwareService.isAccessibilityEnabled();
+    final batt = await _hardwareService.isBatteryOptimizationIgnored();
+    if (mounted) {
+      setState(() {
+        _accessibilityEnabled = a11y;
+        _batteryOptimizationIgnored = batt;
+      });
+    }
   }
 
   @override
   void dispose() {
     _timer?.cancel();
     _detectionSubscription?.cancel();
+    _hardwareSubscription?.cancel();
+    _locationSubscription?.cancel();
     _detectionService.dispose();
+    _hardwareService.dispose();
+    _locationService.dispose();
     super.dispose();
   }
 
-  void _beginCountdown(IncidentKind kind, {double? confidence}) {
-    if (_active != null) return;
+  /// Triggered on Volume Up double-press (hardware panic trigger)
+  void _handleInstantHardwareDispatch() {
+    if (kDebugMode) {
+      debugPrint('[AURA] Hardware panic triggered: Double-press Volume Up');
+    }
+    if (_active != null) {
+      _timer?.cancel();
+      _dispatch(_active!);
+    } else {
+      _beginCountdown(IncidentKind.manualSos, immediate: true);
+    }
+  }
+
+  Future<void> _beginCountdown(IncidentKind kind, {double? confidence, bool immediate = false}) async {
+    if (_active != null && !immediate) return;
+
+    // Fetch initial GPS coordinate
+    final initialPos = await _locationService.getCurrentPosition();
+    if (mounted && initialPos != null) {
+      setState(() => _currentPosition = initialPos);
+    }
+
     final incident = Incident(
       id: const Uuid().v4(),
       kind: kind,
-      status: IncidentStatus.countdown,
+      status: immediate ? IncidentStatus.dispatched : IncidentStatus.countdown,
       createdAt: DateTime.now().toUtc(),
       confidence: confidence,
+      latitude: _currentPosition?.latitude,
+      longitude: _currentPosition?.longitude,
     );
+
+    // Start live GPS tracking stream
+    _locationSubscription?.cancel();
+    await _locationService.startTracking(
+      incidentId: incident.id,
+      onPositionUpdate: (pos) async {
+        if (mounted) {
+          setState(() => _currentPosition = pos);
+        }
+      },
+    );
+
+    if (immediate) {
+      await _dispatch(incident);
+      return;
+    }
+
     setState(() {
       _active = incident;
       _remaining = _countdownDuration.inSeconds;
     });
+
+    _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (_remaining <= 1) {
         _timer?.cancel();
@@ -99,6 +178,13 @@ class _SafetyHomeState extends State<SafetyHome> {
     final entitlements = _entitlementService.current;
     final bool useCloudSms = entitlements.canSendCloudSms;
 
+    final lat = _currentPosition?.latitude ?? incident.latitude;
+    final lng = _currentPosition?.longitude ?? incident.longitude;
+    final locParam = (lat != null && lng != null) ? '?lat=$lat&lng=$lng' : '';
+    final mapLink = (lat != null && lng != null) ? ' https://maps.google.com/?q=$lat,$lng' : '';
+    final portalUrl = 'https://aura-safety.app/incident/${incident.id}$locParam';
+    final smsMessage = 'EMERGENCY: ${incident.kind.name.toUpperCase()} detected! View live location: $portalUrl$mapLink';
+
     final dispatched = incident.copyWith(
       status: IncidentStatus.dispatched,
       smsDispatchMode: useCloudSms ? SmsDispatchMode.cloudTermii : SmsDispatchMode.fallbackToLocalSim,
@@ -106,15 +192,25 @@ class _SafetyHomeState extends State<SafetyHome> {
           ? []
           : _contacts.map((c) => FallbackSmsTarget(
                 phone: c.phone,
-                message: 'EMERGENCY: ${incident.kind.name.toUpperCase()} detected! View location: https://aura-safety.app/incident/${incident.id}',
+                message: smsMessage,
               )).toList(),
+      latitude: lat,
+      longitude: lng,
     );
 
     await _repository.dispatch(dispatched);
 
-    // If local SIM fallback was instructed or required, trigger native SIM SMS
+    // If local SIM fallback is required, dispatch directly via Android SmsManager
     if (dispatched.smsDispatchMode == SmsDispatchMode.fallbackToLocalSim && dispatched.fallbackTargets.isNotEmpty) {
-      await _simSmsService.sendLocalSms(targets: dispatched.fallbackTargets);
+      final success = await _simSmsService.sendLocalSms(targets: dispatched.fallbackTargets);
+      if (mounted && !success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Warning: Failed to dispatch carrier SMS. Please check SMS permission & airtime.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
 
     if (!mounted) return;
@@ -138,6 +234,8 @@ class _SafetyHomeState extends State<SafetyHome> {
     final active = _active;
     if (active == null) return;
     _timer?.cancel();
+    await _locationService.stopTracking();
+    _locationSubscription?.cancel();
     await _repository.cancel(active.id);
     _detectionService.recordFalseAlarm();
     setState(() {
@@ -318,6 +416,25 @@ class _SafetyHomeState extends State<SafetyHome> {
         child: ListView(
           padding: const EdgeInsets.all(24),
           children: [
+            // Device readiness & background protection warnings
+            if (!_accessibilityEnabled || !_batteryOptimizationIgnored) ...[
+              _DeviceReadinessBanner(
+                accessibilityEnabled: _accessibilityEnabled,
+                batteryIgnored: _batteryOptimizationIgnored,
+                onEnableAccessibility: () async {
+                  await _hardwareService.openAccessibilitySettings();
+                  await Future<void>.delayed(const Duration(seconds: 1));
+                  _initSystemReadiness();
+                },
+                onRequestIgnoreBattery: () async {
+                  await _hardwareService.requestIgnoreBatteryOptimizations();
+                  await Future<void>.delayed(const Duration(seconds: 1));
+                  _initSystemReadiness();
+                },
+              ),
+              const SizedBox(height: 16),
+            ],
+
             Text(
               _listening ? 'Protection is active' : 'Protection is paused',
               style: Theme.of(context).textTheme.headlineSmall,
@@ -332,6 +449,9 @@ class _SafetyHomeState extends State<SafetyHome> {
               onChanged: (value) async {
                 if (value) {
                   final started = await _detectionService.start();
+                  if (started) {
+                    await _hardwareService.startForegroundService();
+                  }
                   if (mounted) {
                     setState(() => _listening = started);
                     if (!started) {
@@ -345,6 +465,7 @@ class _SafetyHomeState extends State<SafetyHome> {
                   }
                 } else {
                   await _detectionService.stop();
+                  await _hardwareService.stopForegroundService();
                   if (mounted) setState(() => _listening = false);
                 }
               },
@@ -368,18 +489,33 @@ class _SafetyHomeState extends State<SafetyHome> {
               _CountdownCard(
                 incident: active,
                 seconds: _remaining,
+                position: _currentPosition,
                 onCancel: _cancel,
               )
             else ...[
               FilledButton.icon(
                 icon: const Icon(Icons.sos),
-                label: const Text('Send SOS now'),
+                label: const Text('Send SOS now (or Double-Press Vol Up)'),
                 onPressed: () => _beginCountdown(IncidentKind.manualSos),
               ),
               const SizedBox(height: 12),
-              OutlinedButton(
-                onPressed: () => _onModelPrediction(IncidentKind.gunshot, .90),
-                child: const Text('Simulate qualifying detection'),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => _onModelPrediction(IncidentKind.gunshot, .90),
+                      child: const Text('Simulate Detection'),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.volume_up, size: 16),
+                      label: const Text('Hardware SOS'),
+                      onPressed: _handleInstantHardwareDispatch,
+                    ),
+                  ),
+                ],
               ),
             ],
             const SizedBox(height: 28),
@@ -421,11 +557,79 @@ class _SafetyHomeState extends State<SafetyHome> {
                 leading: const Icon(Icons.warning_amber_rounded, color: Colors.red),
                 title: Text(_label(incident.kind)),
                 subtitle: Text(
-                  '${incident.status.name} • ${incident.smsDispatchMode?.name ?? "cloud"} • ${incident.createdAt.toLocal().toString().substring(0, 16)}',
+                  '${incident.status.name} • ${incident.smsDispatchMode?.name ?? "cloud"} • ${incident.createdAt.toLocal().toString().substring(0, 16)}'
+                  '${incident.latitude != null ? " • (${incident.latitude!.toStringAsFixed(3)}, ${incident.longitude!.toStringAsFixed(3)})" : ""}',
                 ),
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _DeviceReadinessBanner extends StatelessWidget {
+  const _DeviceReadinessBanner({
+    required this.accessibilityEnabled,
+    required this.batteryIgnored,
+    required this.onEnableAccessibility,
+    required this.onRequestIgnoreBattery,
+  });
+
+  final bool accessibilityEnabled;
+  final bool batteryIgnored;
+  final VoidCallback onEnableAccessibility;
+  final VoidCallback onRequestIgnoreBattery;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.amber.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.amber.shade300),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.shield_outlined, color: Colors.amber.shade900, size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Background & Shortcut Readiness',
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          if (!accessibilityEnabled) ...[
+            const Text(
+              '• Hardware volume keys cannot trigger instant SOS while screen is locked.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: onEnableAccessibility,
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 28)),
+              child: const Text('Enable Accessibility Shortcuts →'),
+            ),
+          ],
+          if (!batteryIgnored) ...[
+            const SizedBox(height: 6),
+            const Text(
+              '• OEM battery killers may pause AURA microphone monitoring in background.',
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 4),
+            TextButton(
+              onPressed: onRequestIgnoreBattery,
+              style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(50, 28)),
+              child: const Text('Disable Battery Saver Restrictions →'),
+            ),
+          ],
+        ],
       ),
     );
   }
@@ -510,10 +714,12 @@ class _CountdownCard extends StatelessWidget {
   const _CountdownCard({
     required this.incident,
     required this.seconds,
+    this.position,
     required this.onCancel,
   });
   final Incident incident;
   final int seconds;
+  final Position? position;
   final Future<void> Function() onCancel;
 
   @override
@@ -524,11 +730,43 @@ class _CountdownCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Possible ${_label(incident.kind)}',
-            style: Theme.of(context).textTheme.titleLarge,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Possible ${_label(incident.kind)}',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+              const Icon(Icons.warning_amber_rounded, color: Colors.red, size: 28),
+            ],
           ),
-          Text('Sending an alert in $seconds seconds.'),
+          const SizedBox(height: 4),
+          Text('Sending emergency alert in $seconds seconds.'),
+          if (position != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.location_on, size: 14, color: Colors.black54),
+                const SizedBox(width: 4),
+                Text(
+                  'GPS Lock: ${position!.latitude.toStringAsFixed(4)}, ${position!.longitude.toStringAsFixed(4)} (±${position!.accuracy.toStringAsFixed(0)}m)',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.black87),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              '💡 Hardware Shortcut: Double-press Volume Down to cancel, or Volume Up to send SOS immediately.',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+            ),
+          ),
           const SizedBox(height: 16),
           _SlideToCancel(onConfirmed: onCancel),
         ],
@@ -588,3 +826,4 @@ void _showPrivacy(BuildContext context) => showAboutDialog(
     ),
   ],
 );
+

@@ -87,6 +87,8 @@ class Incident {
     this.confidence,
     this.smsDispatchMode,
     this.fallbackTargets = const [],
+    this.latitude,
+    this.longitude,
   });
   final String id;
   final IncidentKind kind;
@@ -95,11 +97,15 @@ class Incident {
   final double? confidence;
   final SmsDispatchMode? smsDispatchMode;
   final List<FallbackSmsTarget> fallbackTargets;
+  final double? latitude;
+  final double? longitude;
 
   Incident copyWith({
     IncidentStatus? status,
     SmsDispatchMode? smsDispatchMode,
     List<FallbackSmsTarget>? fallbackTargets,
+    double? latitude,
+    double? longitude,
   }) => Incident(
     id: id,
     kind: kind,
@@ -108,5 +114,7 @@ class Incident {
     confidence: confidence,
     smsDispatchMode: smsDispatchMode ?? this.smsDispatchMode,
     fallbackTargets: fallbackTargets ?? this.fallbackTargets,
+    latitude: latitude ?? this.latitude,
+    longitude: longitude ?? this.longitude,
   );
 }

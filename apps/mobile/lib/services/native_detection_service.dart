@@ -16,7 +16,7 @@ class NativeDetectionService implements DetectionService {
   Stream<DetectionEvent> get events => _controller.stream;
 
   @override
-  Future<void> start() async {
+  Future<bool> start() async {
     _subscription ??= _events.receiveBroadcastStream().listen((payload) {
       if (payload is! Map) return;
       final kind = switch (payload['kind']) {
@@ -27,10 +27,12 @@ class NativeDetectionService implements DetectionService {
         _ => null,
       };
       final confidence = (payload['confidence'] as num?)?.toDouble();
-      if (kind != null && confidence != null)
+      if (kind != null && confidence != null) {
         _controller.add(DetectionEvent(kind, confidence));
+      }
     });
     await _methods.invokeMethod<void>('start');
+    return true;
   }
 
   @override
@@ -38,6 +40,11 @@ class NativeDetectionService implements DetectionService {
     await _methods.invokeMethod<void>('stop');
     await _subscription?.cancel();
     _subscription = null;
+  }
+
+  @override
+  void recordFalseAlarm() {
+    // Native service handles threshold adjustments internally
   }
 
   Future<void> dispose() async {

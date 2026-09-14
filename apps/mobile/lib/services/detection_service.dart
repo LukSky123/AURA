@@ -13,7 +13,7 @@ class DetectionEvent {
 /// Abstract contract for acoustic threat detection.
 abstract class DetectionService {
   Stream<DetectionEvent> get events;
-  Future<void> start();
+  Future<bool> start();
   Future<void> stop();
   void recordFalseAlarm();
 }
@@ -38,7 +38,7 @@ class StreamingDetectionService implements DetectionService {
       );
 
   @override
-  Future<void> start() => _controller.start();
+  Future<bool> start() => _controller.start();
 
   @override
   Future<void> stop() => _controller.stop();

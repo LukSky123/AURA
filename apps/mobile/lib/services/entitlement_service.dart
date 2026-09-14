@@ -11,30 +11,29 @@ abstract class EntitlementService {
   Future<bool> purchaseSubscription(SubscriptionTier tier, {bool yearly = false});
 }
 
-class DefaultEntitlementService extends ChangeNotifier implements EntitlementService {
+class DefaultEntitlementService extends ValueNotifier<UserEntitlements>
+    implements EntitlementService {
   DefaultEntitlementService({UserEntitlements? initial})
-      : _current = initial ?? UserEntitlements.free(remainingSms: 2);
-
-  UserEntitlements _current;
+      : super(initial ?? UserEntitlements.free(remainingSms: 2));
 
   @override
   ValueListenable<UserEntitlements> get entitlements => this;
 
-  UserEntitlements get current => _current;
+  UserEntitlements get current => value;
 
   @override
   bool canAddContact(int currentEnabledContacts) {
-    return currentEnabledContacts < _current.contactLimit;
+    return currentEnabledContacts < value.contactLimit;
   }
 
   @override
-  bool get canUseSmartRouting => _current.canUseSmartRouting;
+  bool get canUseSmartRouting => value.canUseSmartRouting;
 
   @override
-  bool get hasCircleSiren => _current.hasCircleSiren;
+  bool get hasCircleSiren => value.hasCircleSiren;
 
   @override
-  bool get hasTransitWatch => _current.hasTransitWatch;
+  bool get hasTransitWatch => value.hasTransitWatch;
 
   @override
   Future<void> refreshEntitlements() async {
@@ -50,14 +49,10 @@ class DefaultEntitlementService extends ChangeNotifier implements EntitlementSer
     // For direct APK: invokes Paystack checkout URL.
     // For demo/testing, upgrade in-memory:
     if (tier == SubscriptionTier.pro) {
-      _current = UserEntitlements.pro();
+      value = UserEntitlements.pro();
     } else if (tier == SubscriptionTier.family) {
-      _current = UserEntitlements.family();
+      value = UserEntitlements.family();
     }
-    notifyListeners();
     return true;
   }
-
-  @override
-  UserEntitlements get value => _current;
 }

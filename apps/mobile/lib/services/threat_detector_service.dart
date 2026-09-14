@@ -1,4 +1,3 @@
-import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:tflite_flutter/tflite_flutter.dart';
 
@@ -103,6 +102,9 @@ class ThreatDetectorService {
     _backoffUntil = null;
     debugPrint('[ThreatDetector] Threshold backoff cleared. Restored to 80% baseline.');
   }
+
+  /// Alias for clearing backoff.
+  void resetBackoff() => clearBackoff();
 
   /// Runs inference on a 15,600-sample Float32 normalized audio window.
   ///
