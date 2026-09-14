@@ -10,6 +10,7 @@ import 'config.dart';
 import 'domain.dart';
 import 'screens/map_tab.dart';
 import 'screens/monitor_tab.dart';
+import 'screens/onboarding/onboarding_flow.dart';
 import 'screens/profile_tab.dart';
 import 'screens/recents_tab.dart';
 import 'services/detection_service.dart';
@@ -17,6 +18,7 @@ import 'services/entitlement_service.dart';
 import 'services/hardware_button_service.dart';
 import 'services/incident_repository.dart';
 import 'services/location_stream_service.dart';
+import 'services/onboarding_storage.dart';
 import 'services/sim_sms_service.dart';
 import 'theme/aura_theme.dart';
 import 'widgets/threat_alert_overlay.dart';
@@ -40,26 +42,110 @@ Future<void> main() async {
   runApp(const AuraApp());
 }
 
-class AuraApp extends StatelessWidget {
-  const AuraApp({super.key});
+class AuraApp extends StatefulWidget {
+  const AuraApp({
+    super.key,
+    this.initialHasCompletedOnboarding,
+    this.initialContacts,
+  });
+
+  final bool? initialHasCompletedOnboarding;
+  final List<TrustedContact>? initialContacts;
+
+  @override
+  State<AuraApp> createState() => _AuraAppState();
+}
+
+class _AuraAppState extends State<AuraApp> {
+  bool _isLoading = true;
+  bool _hasCompletedOnboarding = false;
+  List<TrustedContact> _contacts = [];
+  SubscriptionTier _tier = SubscriptionTier.free;
+
+  @override
+  void initState() {
+    super.initState();
+    _initFlowState();
+  }
+
+  Future<void> _initFlowState() async {
+    if (widget.initialHasCompletedOnboarding != null) {
+      _hasCompletedOnboarding = widget.initialHasCompletedOnboarding!;
+      _contacts = widget.initialContacts ?? [];
+      _isLoading = false;
+      if (mounted) setState(() {});
+      return;
+    }
+
+    final completed = await OnboardingStorage.hasCompletedOnboarding();
+    final contacts = await OnboardingStorage.loadContacts();
+    if (mounted) {
+      setState(() {
+        _hasCompletedOnboarding = completed;
+        _contacts = contacts;
+        _isLoading = false;
+      });
+    }
+  }
+
+  void _onOnboardingCompleted(List<TrustedContact> contacts, SubscriptionTier tier) {
+    setState(() {
+      _contacts = contacts;
+      _tier = tier;
+      _hasCompletedOnboarding = true;
+    });
+  }
+
+  void _onReplayOnboarding() {
+    setState(() {
+      _hasCompletedOnboarding = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) => MaterialApp(
         title: 'AURA',
         theme: AuraTheme.darkTheme,
         debugShowCheckedModeBanner: false,
-        home: const SafetyHome(),
+        home: _isLoading
+            ? const Scaffold(
+                backgroundColor: AuraColors.background,
+                body: Center(
+                  child: CircularProgressIndicator(color: AuraColors.cyan),
+                ),
+              )
+            : (_hasCompletedOnboarding
+                ? DashboardScreen(
+                    initialContacts: _contacts,
+                    initialTier: _tier,
+                    onReplayOnboarding: _onReplayOnboarding,
+                  )
+                : OnboardingFlow(
+                    initialContacts: _contacts,
+                    onCompleted: _onOnboardingCompleted,
+                  )),
       );
 }
 
-class SafetyHome extends StatefulWidget {
-  const SafetyHome({super.key});
+class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({
+    super.key,
+    this.initialContacts,
+    this.initialTier,
+    this.onReplayOnboarding,
+  });
+
+  final List<TrustedContact>? initialContacts;
+  final SubscriptionTier? initialTier;
+  final VoidCallback? onReplayOnboarding;
 
   @override
-  State<SafetyHome> createState() => _SafetyHomeState();
+  State<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _SafetyHomeState extends State<SafetyHome> {
+typedef SafetyHome = DashboardScreen;
+
+class _DashboardScreenState extends State<DashboardScreen> {
   int _currentTab = 0;
 
   final IncidentRepository _repository = SupabaseIncidentRepository();
@@ -70,10 +156,7 @@ class _SafetyHomeState extends State<SafetyHome> {
   final LocationStreamService _locationService = LocationStreamService();
 
   final List<Incident> _history = [];
-  final List<TrustedContact> _contacts = [
-    const TrustedContact(id: 'c1', name: 'Mum', phone: '+2348011112222'),
-    const TrustedContact(id: 'c2', name: 'Brother', phone: '+2348033334444'),
-  ];
+  late List<TrustedContact> _contacts;
 
   StreamSubscription<DetectionEvent>? _detectionSubscription;
   StreamSubscription<String>? _hardwareSubscription;
@@ -91,6 +174,16 @@ class _SafetyHomeState extends State<SafetyHome> {
   @override
   void initState() {
     super.initState();
+    _contacts = widget.initialContacts != null && widget.initialContacts!.isNotEmpty
+        ? List.from(widget.initialContacts!)
+        : [
+            const TrustedContact(id: 'c1', name: 'Mum', phone: '+2348011112222'),
+            const TrustedContact(id: 'c2', name: 'Brother', phone: '+2348033334444'),
+          ];
+
+    if (widget.initialTier != null && widget.initialTier != SubscriptionTier.free) {
+      _entitlementService.purchaseSubscription(widget.initialTier!);
+    }
     _initSystemReadiness();
 
     _detectionSubscription = _detectionService.events.listen((event) {
@@ -370,15 +463,17 @@ class _SafetyHomeState extends State<SafetyHome> {
           ),
           FilledButton(
             onPressed: () {
-              if (nameController.text.isNotEmpty &&
-                  phoneController.text.isNotEmpty) {
+              if (nameController.text.trim().isNotEmpty &&
+                  phoneController.text.trim().isNotEmpty) {
+                final contact = TrustedContact(
+                  id: const Uuid().v4(),
+                  name: nameController.text.trim(),
+                  phone: phoneController.text.trim(),
+                );
                 setState(() {
-                  _contacts.add(TrustedContact(
-                    id: const Uuid().v4(),
-                    name: nameController.text.trim(),
-                    phone: phoneController.text.trim(),
-                  ));
+                  _contacts.add(contact);
                 });
+                OnboardingStorage.saveContacts(_contacts);
                 Navigator.pop(ctx);
               }
             },
@@ -663,6 +758,7 @@ class _SafetyHomeState extends State<SafetyHome> {
                   _initSystemReadiness();
                 },
                 onShowPrivacy: () => _showPrivacy(context),
+                onReplayOnboarding: widget.onReplayOnboarding,
               ),
             ],
           ),

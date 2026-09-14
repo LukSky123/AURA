@@ -17,6 +17,7 @@ class ProfileTab extends StatelessWidget {
     required this.onOpenAccessibilitySettings,
     required this.onRequestIgnoreBattery,
     required this.onShowPrivacy,
+    this.onReplayOnboarding,
   });
 
   final EntitlementService entitlementService;
@@ -30,6 +31,7 @@ class ProfileTab extends StatelessWidget {
   final VoidCallback onOpenAccessibilitySettings;
   final VoidCallback onRequestIgnoreBattery;
   final VoidCallback onShowPrivacy;
+  final VoidCallback? onReplayOnboarding;
 
   @override
   Widget build(BuildContext context) {
@@ -323,6 +325,19 @@ class ProfileTab extends StatelessWidget {
             ),
           ),
         ),
+        if (onReplayOnboarding != null) ...[
+          const SizedBox(height: 8),
+          Center(
+            child: TextButton.icon(
+              onPressed: onReplayOnboarding,
+              icon: const Icon(Icons.replay_rounded, color: AuraColors.cyan, size: 16),
+              label: const Text(
+                'Replay Onboarding & Threat Drill',
+                style: TextStyle(color: AuraColors.cyan, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
       ],
     );
