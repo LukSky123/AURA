@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import 'domain.dart';
+import 'services/detection_service.dart';
 import 'services/entitlement_service.dart';
 import 'services/incident_repository.dart';
 import 'services/sim_sms_service.dart';
@@ -38,6 +39,7 @@ class _SafetyHomeState extends State<SafetyHome> {
   final IncidentRepository _repository = DeferredIncidentRepository();
   final DefaultEntitlementService _entitlementService = DefaultEntitlementService();
   final SimSmsService _simSmsService = DefaultSimSmsService();
+  final StreamingDetectionService _detectionService = StreamingDetectionService();
 
   final List<Incident> _history = [];
   final List<TrustedContact> _contacts = [
@@ -45,6 +47,7 @@ class _SafetyHomeState extends State<SafetyHome> {
     const TrustedContact(id: 'c2', name: 'Brother', phone: '+2348033334444'),
   ];
 
+  StreamSubscription<DetectionEvent>? _detectionSubscription;
   Timer? _timer;
   Incident? _active;
   int _remaining = 0;
@@ -52,8 +55,20 @@ class _SafetyHomeState extends State<SafetyHome> {
   bool _optInAudioDonation = true;
 
   @override
+  void initState() {
+    super.initState();
+    _detectionSubscription = _detectionService.events.listen((event) {
+      if (mounted) {
+        _onModelPrediction(event.kind, event.confidence);
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _timer?.cancel();
+    _detectionSubscription?.cancel();
+    _detectionService.dispose();
     super.dispose();
   }
 
@@ -124,17 +139,22 @@ class _SafetyHomeState extends State<SafetyHome> {
     if (active == null) return;
     _timer?.cancel();
     await _repository.cancel(active.id);
+    _detectionService.recordFalseAlarm();
     setState(() {
       _history.insert(0, active.copyWith(status: IncidentStatus.cancelled));
       _active = null;
       _remaining = 0;
     });
 
-    if (_optInAudioDonation && mounted) {
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('3s encrypted false-alert audio sample securely contributed to improve detection accuracy.'),
-          duration: Duration(seconds: 3),
+        SnackBar(
+          content: Text(
+            _optInAudioDonation
+                ? 'Alert cancelled. Threat sensitivity backed off to 95% for 15m. 3s encrypted sample contributed.'
+                : 'Alert cancelled. Threat sensitivity backed off to 95% for 15 minutes.',
+          ),
+          duration: const Duration(seconds: 4),
         ),
       );
     }
@@ -309,10 +329,30 @@ class _SafetyHomeState extends State<SafetyHome> {
             const SizedBox(height: 20),
             SwitchListTile(
               value: _listening,
-              onChanged: (value) => setState(() => _listening = value),
+              onChanged: (value) async {
+                if (value) {
+                  final started = await _detectionService.start();
+                  if (mounted) {
+                    setState(() => _listening = started);
+                    if (!started) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Microphone permission required for real-time acoustic protection.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                } else {
+                  await _detectionService.stop();
+                  if (mounted) setState(() => _listening = false);
+                }
+              },
               title: const Text('Sound recognition'),
-              subtitle: const Text(
-                'Continuous on-device INT8 acoustic inference for gunshots, explosions, glass breaking & collisions.',
+              subtitle: Text(
+                _detectionService.detector.isBackoffActive
+                    ? 'Continuous 16 kHz acoustic inference (Backoff active: 95% threshold)'
+                    : 'Continuous on-device INT8 acoustic inference for gunshots, explosions & glass breaks (80% baseline).',
               ),
             ),
             SwitchListTile(
