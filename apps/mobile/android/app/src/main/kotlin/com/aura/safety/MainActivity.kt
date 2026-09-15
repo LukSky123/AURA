@@ -141,3 +141,14 @@ class MainActivity : FlutterActivity() {
         }
     }
 }
+
+data class DetectionPrediction(val kind: String, val confidence: Double)
+
+object DetectionBus {
+    var listener: ((DetectionPrediction) -> Unit)? = null
+
+    fun emit(kind: String, confidence: Double) {
+        listener?.invoke(DetectionPrediction(kind, confidence))
+    }
+}
+
