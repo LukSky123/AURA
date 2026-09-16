@@ -49,19 +49,8 @@ class _Screen4CalibrationState extends State<Screen4Calibration>
     super.dispose();
   }
 
-  Future<void> _startCalibration() async {
-    // Start live inference on-device
-    await _detectionService.start();
-
-    _eventSub = _detectionService.events.listen((event) {
-      if (mounted) {
-        setState(() {
-          _detectedClass = event.kind.name;
-          _detectedConfidence = event.confidence;
-        });
-      }
-    });
-
+  void _startCalibration() {
+    // 1. Immediately start the 5-second countdown timer so UI never hangs
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() {
@@ -81,6 +70,34 @@ class _Screen4CalibrationState extends State<Screen4Calibration>
         }
       });
     });
+
+    // 2. Start hardware inference in background with timeout and safe fallback
+    _startAudioCaptureSafely();
+  }
+
+  Future<void> _startAudioCaptureSafely() async {
+    try {
+      final started = await _detectionService.start().timeout(
+        const Duration(seconds: 3),
+        onTimeout: () {
+          debugPrint('[Calibration] Audio detection startup timed out; continuing ambient baseline.');
+          return false;
+        },
+      );
+
+      if (started && mounted) {
+        _eventSub = _detectionService.events.listen((event) {
+          if (mounted) {
+            setState(() {
+              _detectedClass = event.kind.name;
+              _detectedConfidence = event.confidence;
+            });
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('[Calibration] Non-fatal audio calibration warning: $e');
+    }
   }
 
   @override
@@ -91,10 +108,12 @@ class _Screen4CalibrationState extends State<Screen4Calibration>
         child: Column(
           children: [
             Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Visual Radar Calibration
+              child: Center(
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Visual Radar Calibration
                   SizedBox(
                     width: 220,
                     height: 220,
@@ -197,6 +216,7 @@ class _Screen4CalibrationState extends State<Screen4Calibration>
                   // Ambient telemetry chip
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    constraints: const BoxConstraints(maxWidth: 320),
                     decoration: BoxDecoration(
                       color: AuraColors.surface,
                       borderRadius: BorderRadius.circular(16),
@@ -218,20 +238,25 @@ class _Screen4CalibrationState extends State<Screen4Calibration>
                           ),
                         ),
                         const SizedBox(width: 10),
-                        Text(
-                          'Environment: ${_detectedClass.replaceAll('_', ' ').toUpperCase()} (${(_detectedConfidence * 100).toInt()}%)',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                          Flexible(
+                            child: Text(
+                              'Environment: ${_detectedClass.replaceAll('_', ' ').toUpperCase()} (${(_detectedConfidence * 100).toInt()}%)',
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
                     ),
                   ),
                 ],
               ),
             ),
+          ),
+        ),
 
             // Continue Button
             SizedBox(

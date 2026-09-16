@@ -41,6 +41,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _nextPage() {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (_currentPage < 5) {
       _pageController.animateToPage(
         _currentPage + 1,
@@ -51,6 +52,7 @@ class _OnboardingFlowState extends State<OnboardingFlow> {
   }
 
   void _previousPage() {
+    FocusManager.instance.primaryFocus?.unfocus();
     if (_currentPage > 0) {
       _pageController.animateToPage(
         _currentPage - 1,

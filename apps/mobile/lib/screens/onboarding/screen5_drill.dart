@@ -173,10 +173,12 @@ class _Screen5DrillState extends State<Screen5Drill>
   }
 
   Widget _buildActiveDrillView() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        // Threat Alert Visual Header
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Threat Alert Visual Header
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: const [
@@ -342,57 +344,63 @@ class _Screen5DrillState extends State<Screen5Drill>
             fontSize: 11,
           ),
         ),
-      ],
+          ],
+        ),
+      ),
     );
   }
 
   Widget _buildSuccessView() {
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Container(
-          width: 100,
-          height: 100,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.green.withValues(alpha: 0.15),
-            border: Border.all(color: Colors.greenAccent, width: 2),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.greenAccent.withValues(alpha: 0.3),
-                blurRadius: 28,
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              width: 100,
+              height: 100,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.green.withValues(alpha: 0.15),
+                border: Border.all(color: Colors.greenAccent, width: 2),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.greenAccent.withValues(alpha: 0.3),
+                    blurRadius: 28,
+                  ),
+                ],
               ),
-            ],
-          ),
-          child: const Center(
-            child: Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 56),
-          ),
-        ),
-        const SizedBox(height: 24),
-        const Text(
-          'Drill Disarmed Successfully!',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 22,
-            fontWeight: FontWeight.w800,
-            letterSpacing: -0.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Padding(
-          padding: EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'You successfully practiced canceling an alert.\nIn a real emergency, you can also press Volume Down on your phone rocker to disarm immediately.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: AuraColors.onSurfaceVariant,
-              fontSize: 13,
-              height: 1.4,
+              child: const Center(
+                child: Icon(Icons.check_circle_rounded, color: Colors.greenAccent, size: 56),
+              ),
             ),
-          ),
+            const SizedBox(height: 24),
+            const Text(
+              'Drill Disarmed Successfully!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.w800,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 20),
+              child: Text(
+                'You successfully practiced canceling an alert.\nIn a real emergency, you can also press Volume Down on your phone rocker to disarm immediately.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: AuraColors.onSurfaceVariant,
+                  fontSize: 13,
+                  height: 1.4,
+                ),
+              ),
+            ),
+          ],
         ),
-      ],
+      ),
     );
   }
 }

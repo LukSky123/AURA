@@ -42,3 +42,5 @@ ml/reports/
 
 # Dataset archives and local source material
 datasets/
+
+*.apk
